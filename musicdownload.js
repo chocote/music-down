@@ -187,8 +187,8 @@ var http = require('http'),
     _readTrackSelection: function () {
       stdout.write('\nIngresa el número de pista o "n" para descargar todo:');
       _read(function (data) {
-        // stdin.pause();
-
+        stdin.pause();
+        
         data = data.toString().trim();
 
         if (data == 'n') {
