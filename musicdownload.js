@@ -13,8 +13,8 @@ var http = require('http'),
   _downloadUrl = 'http://www.perupoprock.com/media/archivo/audio/',
 
   // Set optional proxy settings
-  _proxy = '172.21.0.12',
-  _port = '3128';
+  _proxy = '',
+  _port = '';
 
 
 (function () {
