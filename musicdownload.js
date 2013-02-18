@@ -13,8 +13,8 @@ var http = require('http'),
   _downloadUrl = 'http://www.perupoprock.com/media/archivo/audio/',
 
   // Set optional proxy settings
-  _proxy = '',
-  _port = '';
+  _proxy = '172.21.0.12',
+  _port = '3128';
 
 
 (function () {
@@ -116,7 +116,7 @@ var http = require('http'),
       } else {
         this._getTracks(album, function (tracks) {
           if (tracks.length == 0) {
-            console.log('=> Este album no tiene canciones disponibles para descarga, \n intenta seleccionando otro album.\n');
+            stdout.write('\033[31m - Este album no tiene canciones disponibles para descarga =..(, intenta seleccionando otro album.\033[39m\n');
             this._readAlbumSelection();
             return;
           }
@@ -163,48 +163,48 @@ var http = require('http'),
           if (album.tracks[++i]) {
             args.callee(i);
           } else {
-            console.log('\nSe ha descargado todo el album ' + album.name + '" de ' + album.band);
+            stdout.write('\nSe ha descargado todo el album ' + album.name + '" de ' + album.band + ':D\n');
             callback && callback();
           }
         });
       }(index));
     },
     _readAlbumSelection: function () {
-      stdout.write(' \033[39mIngresa el número de album que deseas ver:\033[39m');
+      stdout.write('\nIngresa el número de album que deseas ver:');
       _read(function (data) {
         stdin.pause();
         if (isNaN(data)) {
-          stdout.write(' \033[31mIngreso invalido, intente nuevamente!\033[39m\n');
+          stdout.write('\033[31mIngreso invalido, intente nuevamente!\033[39m\n');
           this._readAlbumSelection();
           return;
         }
         var index = parseInt(data, 10),
           album = this.albumes[index];
-        console.log('\n Haz Seleccionado el album "' + album.name + '" de ' + album.band);
+        stdout.write('\nHaz Seleccionado el album "' + album.name + '" de ' + album.band + '\n');
         this.listAlbumTracks(album);
       }.bind(this));
     },
     _readTrackSelection: function () {
-      stdout.write(' \033[39mIngresa el número de pista o "n" para descargar todo:\033[39m');
+      stdout.write('\nIngresa el número de pista o "n" para descargar todo:');
       _read(function (data) {
         // stdin.pause();
 
         data = data.toString().trim();
 
         if (data == 'n') {
-          stdout.write(' \033[39mHaz escogido descargar todo el album!\033[39m\n');
+          stdout.write('\033[39mHaz escogido descargar todo el album!\033[39m\n');
           this._downloadAlbum(this.currentAlbum, function () {
             process.exit();
           });
         } else {
           if (isNaN(data)) {
-            stdout.write(' \033[31mIngreso invalido, intente nuevamente!\033[39m\n');
+            stdout.write('\033[31mIngreso invalido, intente nuevamente!\033[39m\n');
             this._readTrackSelection();
             return;
           }
           var index = parseInt(data, 10),
             track = this.currentAlbum.tracks[index];
-          console.log('\nHaz Seleccionado: ' + track.title + ' - ' + this.currentAlbum.band);
+          stdout.write('\n\033[39mHaz selecctionado'+ track.title + ' - ' + this.currentAlbum.band+'\033[39m\n');
           this._downloadTrack(track, function () {
             process.exit();
           });
@@ -213,22 +213,20 @@ var http = require('http'),
     },
     _writeAlbumes: function () {
       this.albumes.forEach(function (album, ind) {
-        stdout.write('    \033[36m' + ind + '. ' + album.name + ' - ' + album.band + '\033[39m\n');
+        stdout.write(' \033[36m' + ind + '. ' + album.name + ' - ' + album.band + '\033[39m\n');
       });
-      console.log('');
     },
     _writeTracks: function (album) {
       album.tracks.forEach(function (track, ind) {
-        stdout.write('    \033[36m' + ind + '. ' + track.title + '\033[39m\n');
+        stdout.write(' \033[36m' + ind + '. ' + track.title + '\033[39m\n');
       });
-      console.log('');
     },
     _getAlbumes: function (callback) {
-      console.log('\nObteniendo lista de albumes disponibles..');
+      stdout.write('Obteniendo lista de albumes disponibles..\n');
       _getAllAlbumes(callback);
     },
     _getTracks: function (album, callback) {
-      console.log('\nObteniendo el album "' + album.name + '" de ' + album.band + '..\n');
+      stdout.write('Obteniendo el album "' + album.name + '" de ' + album.band + '..\n\n');
       _getAllTracks(album, callback);
     }
   };
