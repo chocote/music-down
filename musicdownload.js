@@ -1,6 +1,7 @@
 // Autor Oscar Sobrevilla 
-// require install node package
+// require cheerio package
 // $ npm install cheerio
+
 var http = require('http'),
   fs = require('fs'),
   cheerio = require('cheerio'),
@@ -204,7 +205,7 @@ var http = require('http'),
           }
           var index = parseInt(data, 10),
             track = this.currentAlbum.tracks[index];
-          stdout.write('\n\033[39mHaz selecctionado'+ track.title + ' - ' + this.currentAlbum.band+'\033[39m\n');
+          stdout.write('\n\033[39mHaz seleccionado'+ track.title + ' - ' + this.currentAlbum.band+'\033[39m\n');
           this._downloadTrack(track, function () {
             process.exit();
           });
