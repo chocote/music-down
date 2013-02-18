@@ -1,71 +1,89 @@
 // Autor Oscar Sobrevilla 
 // require install node package
 // $ npm install cheerio
-
-
 var http = require('http'),
   fs = require('fs'),
   cheerio = require('cheerio'),
   stdin = process.stdin,
-  stdout = process.stdout;
+  stdout = process.stdout,
+
+  // Urls
+
+  _siteUrl = 'http://www.perupoprock.com/album.php?idsc=2',
+  _downloadUrl = 'http://www.perupoprock.com/media/archivo/audio/',
+
+  // Set optional proxy settings
+  _proxy = '',
+  _port = '';
 
 
 (function () {
-  var _siteUrl = 'http://www.perupoprock.com/album.php?idsc=2',
-    _downloadUrl = 'http://www.perupoprock.com/media/archivo/audio/',
-    _read = function (onData) {
-      stdin.resume();
-      stdin.setEncoding('utf8');
-      stdin.once('data', onData);
-    },
-    _getAllAlbumes = function (callback) {
-      var html = '',
-        albumes = [];
-      http.get(_siteUrl, function (res) {
-        res.on('data', function (data) {
-          html += data;
-        })
-          .on('end', function () {
-          var $ = cheerio.load(html);
-          $('div.div_resize_min a').each(function () {
-            var _this = $(this),
-              title = _this.attr('title').split(/\-/);
-            albumes.push({
-              band: title[1].trim(),
-              name: title[0].trim(),
-              image: _this.find('img').attr('src'),
-              link: 'http://www.perupoprock.com/' + _this.attr('href'),
-              tracks: []
+
+  var _read = function (onData) {
+    stdin.resume();
+    stdin.setEncoding('utf8');
+    stdin.once('data', onData);
+  },
+  _getAllAlbumes = function (callback) {
+    var html = '',
+      albumes = [],
+      options = {
+        host: _proxy,
+        port: _port,
+        path: _siteUrl
+      };
+
+    http.get(options, function (res) {
+      res.on('data', function (data) {
+        html += data;
+      })
+        .on('end', function () {
+        var $ = cheerio.load(html);
+        $('div.div_resize_min a').each(function () {
+          var _this = $(this),
+            title = _this.attr('title').split(/\-/);
+          albumes.push({
+            band: title[1].trim(),
+            name: title[0].trim(),
+            image: _this.find('img').attr('src'),
+            link: 'http://www.perupoprock.com/' + _this.attr('href'),
+            tracks: []
+          });
+        });
+        callback && callback(albumes);
+      });
+    });
+  },
+  _getAllTracks = function (album, callback) {
+    var html = '',
+      tracks = [],
+      options = {
+        host: _proxy,
+        port: _port,
+        path: album.link
+      };
+
+    http.get(options, function (res) {
+      res.on('data', function (data) {
+        html += data;
+      }).on('end', function () {
+        var $ = cheerio.load(html);
+        $('.transparent_class-2').each(function () {
+          var _this = $(this),
+            link = _this.find('#sound-div a'),
+            url = String(link.attr('onclick')),
+            splits = /mp3=(.*)\.mp3/.exec(url);
+          if (splits != null && url != "undefined") {
+            tracks.push({
+              id: splits[1],
+              title: _this.children().first().text().split('-')[1]
             });
-          });
-          callback && callback(albumes);
+          }
         });
+        callback && callback(tracks);
       });
-    },
-    _getAllTracks = function (album, callback) {
-      var html = '',
-        tracks = [];
-      http.get(album.link, function (res) {
-        res.on('data', function (data) {
-          html += data;
-        }).on('end', function () {
-          var $ = cheerio.load(html);
-          $('.transparent_class-2').each(function () {
-            var _this = $(this),
-              link = _this.find('#sound-div a'),
-              url = String(link.attr('onclick')),
-              splits = /mp3=(.*)\.mp3/.exec(url);
-            if(splits != null && url != "undefined") {
-              tracks.push({
-                id: splits[1],
-                title: _this.children().first().text().split('-')[1]
-              });
-            }
-          });
-          callback && callback(tracks);
-        });
-      });
-    };
+    });
+  };
   /* ------------ CLASS ---------- */
   PeruPopRockFreeMusic = function () {
     this.albumes = null;
@@ -79,7 +97,7 @@ var http = require('http'),
       }.bind(this));
     },
     listAlbumes: function (callback) {
-      if(this.albumes) {
+      if (this.albumes) {
         this._writeAlbumes();
         callback && callback();
       } else {
@@ -92,7 +110,7 @@ var http = require('http'),
     },
     listAlbumTracks: function (album) {
       this.currentAlbum = album;
-      if(album.tracks && album.tracks.length) {
+      if (album.tracks && album.tracks.length) {
         this._writeTracks(album);
         this._readTrackSelection();
       } else {
@@ -101,7 +119,7 @@ var http = require('http'),
             console.log('=> Este album no tiene canciones disponibles para descarga, \n intenta seleccionando otro album.\n');
             this._readAlbumSelection();
             return;
-          }  
+          }
           album.tracks = tracks;
           this._writeTracks(album);
           this._readTrackSelection();
@@ -109,69 +127,78 @@ var http = require('http'),
       }
     },
     _downloadTrack: function (track, callback) {
-      console.log('=> Descargando track: ' + track.title + '.mp3');
-      var trackStream;
-      
-      if(!fs.existsSync('descargas')) 
-        fs.mkdirSync(__dirname+'/descargas/');
-      
-      if(!fs.existsSync(__dirname+'/descargas/'+this.currentAlbum.band+'/')) 
-        fs.mkdirSync(__dirname+'/descargas/'+this.currentAlbum.band+'/');
-      
-      if(!fs.existsSync(__dirname+'/descargas/'+this.currentAlbum.band+'/'+this.currentAlbum.name+'/')) 
-        fs.mkdirSync(__dirname+'/descargas/'+this.currentAlbum.band+'/'+this.currentAlbum.name+'/');
-      
-      trackStream = fs.createWriteStream(__dirname+'/descargas/'+this.currentAlbum.band + '/' + this.currentAlbum.name + '/' + track.title + '.mp3');
+
+      stdout.write('\033[39m * ' + track.title + '..\033[39m');
+
+      var trackStream,
+      options = {
+        host: _proxy,
+        port: _port,
+        path: _downloadUrl + track.id + '.mp3'
+      },
+      dirs = ['downloads', this.currentAlbum.band, this.currentAlbum.name],
+        dirPath = '';
+
+      dirs.forEach(function (dir) {
+        dirPath += '/' + dir;
+        if (!fs.existsSync(__dirname + dirPath)) fs.mkdirSync(__dirname + dirPath);
+      });
+
+      trackStream = fs.createWriteStream(__dirname + '/' + dirPath + '/' + track.title + '.mp3');
       trackStream.once('close', function () {
-        console.log('Hecho!');
+        stdout.write('\033[33m Hecho!\033[39m\n');
         callback && callback();
       });
-      http.get(_downloadUrl + track.id + '.mp3', function (res) {
+      http.get(options, function (res) {
         res.pipe(trackStream);
       });
     },
     _downloadAlbum: function (album, callback) {
-      console.log('=> Descargando album: "' + album.name + '" de ' + album.band);
-      var index = 0;
-      this._downloadTrack(album.tracks[index], function () {
-        if(album.tracks[++index]) {
-          this._downloadTrack(album.tracks[index]);
-        } else {
-          console.log('\nSe ha descargado todo el album ' + album.name + '" de ' + album.band);
-          callback && callback();
-        }
-      }.bind(this));
+      stdout.write('Descargando album: "' + album.name + '" de ' + album.band + '\n');
+      var index = 0,
+        _this = this;
+      (function (i) {
+        var args = arguments;
+        _this._downloadTrack(album.tracks[i], function () {
+          if (album.tracks[++i]) {
+            args.callee(i);
+          } else {
+            console.log('\nSe ha descargado todo el album ' + album.name + '" de ' + album.band);
+            callback && callback();
+          }
+        });
+      }(index));
     },
     _readAlbumSelection: function () {
       stdout.write(' \033[39mIngresa el número de album que deseas ver:\033[39m');
       _read(function (data) {
         stdin.pause();
-        if(isNaN(data)) {
-          console.log('\n=> Ingreso invalido, intente nuevamente!');
+        if (isNaN(data)) {
+          stdout.write(' \033[31mIngreso invalido, intente nuevamente!\033[39m\n');
           this._readAlbumSelection();
           return;
         }
         var index = parseInt(data, 10),
           album = this.albumes[index];
-        console.log('\nHaz Seleccionado el album "' + album.name + '" de ' + album.band);
+        console.log('\n Haz Seleccionado el album "' + album.name + '" de ' + album.band);
         this.listAlbumTracks(album);
       }.bind(this));
     },
     _readTrackSelection: function () {
-       stdout.write(' \033[39mIngresa el número de pista o "n" para descargar todo:\033[39m');
+      stdout.write(' \033[39mIngresa el número de pista o "n" para descargar todo:\033[39m');
       _read(function (data) {
         // stdin.pause();
-        
+
         data = data.toString().trim();
 
-        if(data == 'n') {
-          console.log('\nHaz escogido descargar todo el album!');
+        if (data == 'n') {
+          stdout.write(' \033[39mHaz escogido descargar todo el album!\033[39m\n');
           this._downloadAlbum(this.currentAlbum, function () {
             process.exit();
           });
         } else {
-          if(isNaN(data)) {
-            console.log('\n=> Ingreso invalido, intente nuevamente!');
+          if (isNaN(data)) {
+            stdout.write(' \033[31mIngreso invalido, intente nuevamente!\033[39m\n');
             this._readTrackSelection();
             return;
           }
@@ -186,13 +213,13 @@ var http = require('http'),
     },
     _writeAlbumes: function () {
       this.albumes.forEach(function (album, ind) {
-        console.log('    ' + ind + '. ' + album.name + ' - ' + album.band);
+        stdout.write('    \033[36m' + ind + '. ' + album.name + ' - ' + album.band + '\033[39m\n');
       });
       console.log('');
     },
     _writeTracks: function (album) {
       album.tracks.forEach(function (track, ind) {
-        console.log('    ' + ind + '. ' + track.title);
+        stdout.write('    \033[36m' + ind + '. ' + track.title + '\033[39m\n');
       });
       console.log('');
     },
