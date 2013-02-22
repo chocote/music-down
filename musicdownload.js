@@ -1,6 +1,7 @@
-// Autor Oscar Sobrevilla 
-// require cheerio package
-// $ npm install cheerio
+/* Autor Oscar Sobrevilla 
+ * require cheerio package
+ * $ npm install cheerio
+ */
 
 var http = require('http'),
   fs = require('fs'),
@@ -8,10 +9,10 @@ var http = require('http'),
   stdin = process.stdin,
   stdout = process.stdout,
 
-  // Urls
+  // Config
 
-  _siteUrl = 'http://www.perupoprock.com/album.php?idsc=2',
-  _downloadUrl = 'http://www.perupoprock.com/media/archivo/audio/',
+  _targetUrl = 'perupoprock.com',
+  _downloadUrl= '/media/archivo/audio/',
 
   // Set optional proxy settings
   _proxy = '',
@@ -20,25 +21,28 @@ var http = require('http'),
 
 (function () {
 
-  var _read = function (onData) {
+  var _options = {
+    hostname: _targetUrl,
+    method : 'get',
+    host : _proxy,
+    port : _port
+  },
+
+  _read = function (onData) {
     stdin.resume();
     stdin.setEncoding('utf8');
     stdin.once('data', onData);
   },
   _getAllAlbumes = function (callback) {
     var html = '',
-      albumes = [],
-      options = {
-        host: _proxy,
-        port: _port,
-        path: _siteUrl
-      };
+      albumes = [];
+      _options.path = '/album.php?idsc=2';
 
-    http.get(options, function (res) {
-      res.on('data', function (data) {
+    http.get(_options, function (res) {
+      res.setEncoding('utf8');
+      res.on('data', function (data) { 
         html += data;
-      })
-        .on('end', function () {
+      }).on('end', function () {
         var $ = cheerio.load(html);
         $('div.div_resize_min a').each(function () {
           var _this = $(this),
@@ -47,24 +51,22 @@ var http = require('http'),
             band: title[1].trim(),
             name: title[0].trim(),
             image: _this.find('img').attr('src'),
-            link: 'http://www.perupoprock.com/' + _this.attr('href'),
+            link: _this.attr('href'),
             tracks: []
           });
         });
         callback && callback(albumes);
       });
     });
+
   },
   _getAllTracks = function (album, callback) {
     var html = '',
-      tracks = [],
-      options = {
-        host: _proxy,
-        port: _port,
-        path: album.link
-      };
-
-    http.get(options, function (res) {
+      tracks = [];
+      
+    _options.path = '/'+album.link;
+    
+    http.get(_options, function (res) {
       res.on('data', function (data) {
         html += data;
       }).on('end', function () {
@@ -131,12 +133,10 @@ var http = require('http'),
 
       stdout.write('\033[39m * ' + track.title + '..\033[39m');
 
+      _options.path = _downloadUrl + track.id + '.mp3';
+
       var trackStream,
-      options = {
-        host: _proxy,
-        port: _port,
-        path: _downloadUrl + track.id + '.mp3'
-      },
+      
       dirs = ['downloads', this.currentAlbum.band, this.currentAlbum.name],
         dirPath = '';
 
@@ -150,7 +150,7 @@ var http = require('http'),
         stdout.write('\033[33m Hecho!\033[39m\n');
         callback && callback();
       });
-      http.get(options, function (res) {
+      http.get(_options, function (res) {
         res.pipe(trackStream);
       });
     },
